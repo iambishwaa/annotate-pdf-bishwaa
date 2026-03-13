@@ -1,0 +1,10 @@
+{
+  "id": "annotate-pdf-bishwaa",
+  "name": "AnnotatePDF by bishwaa",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Native PDF highlighting with Foxit-level precision. Highlights are written directly into the PDF binary.",
+  "author": "bishwaa",
+  "authorUrl": "https://bishwaa.com.np",
+  "isDesktopOnly": true
+}
