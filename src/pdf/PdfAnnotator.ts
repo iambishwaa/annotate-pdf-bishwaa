@@ -28,15 +28,6 @@ export interface SavedAnnotationInfo {
   pHeight: number;
 }
 
-// ── Custom error types ────────────────────────────────────────────────────────
-// These let main.ts distinguish WHY a flush failed and react differently:
-//
-//  EncryptedPdfError  → PDF is password-protected.  Queue must be CLEARED.
-//                       Retrying will never succeed.
-//
-//  LockedPdfError     → PDF is open in another app (OS file lock).
-//                       Queue must be KEPT.  Retry when user closes other app.
-// ─────────────────────────────────────────────────────────────────────────────
 export class EncryptedPdfError extends Error {
   constructor(fileName: string) {
     super(`"${fileName}" is password-protected and cannot be annotated.`);
@@ -169,7 +160,7 @@ export class PdfAnnotator {
       );
       const spatialTargets = deletionIds
         .filter((id) => id.startsWith("SPATIAL:"))
-        .map(this._parseSpatialId);
+        .map((id) => this._parseSpatialId(id));
 
       for (let pageIdx = 0; pageIdx < pages.length; pageIdx++) {
         const page = pages[pageIdx];
@@ -305,9 +296,10 @@ export class PdfAnnotator {
       const annotationRef = pdfDoc.context.register(highlightAnnotation);
       let annotsObj = this._resolveAnnotsArray(pdfDoc, page);
       if (!annotsObj) {
-        const newArr = pdfDoc.context.obj([]);
+        // After
+        const newArr = pdfDoc.context.obj([]) as PDFArray;
         page.node.set(PDFName.of("Annots"), newArr);
-        annotsObj = newArr as PDFArray;
+        annotsObj = newArr;
       }
       annotsObj.push(annotationRef);
     }
@@ -319,7 +311,7 @@ export class PdfAnnotator {
         file,
         modifiedPdfBytes.buffer as ArrayBuffer,
       );
-    } catch (e: any) {
+    } catch {
       // Save failures are almost always OS file locks
       throw new LockedPdfError(file.name);
     }
@@ -327,18 +319,11 @@ export class PdfAnnotator {
 
   // ── Private helpers ───────────────────────────────────────────────────────
 
-  /**
-   * Reads just the PDF header/trailer to check for an /Encrypt dictionary
-   * WITHOUT fully parsing the document. Throws EncryptedPdfError if found.
-   */
   private async _assertNotEncrypted(
     bytes: ArrayBuffer,
     fileName: string,
   ): Promise<void> {
     try {
-      // Load with ignoreEncryption: false — pdf-lib will throw its own
-      // EncryptedPDFError immediately if the trailer has /Encrypt.
-      // We catch that and re-throw as our typed error.
       await PDFDocument.load(bytes, {
         updateMetadata: false,
         ignoreEncryption: false,
@@ -350,8 +335,6 @@ export class PdfAnnotator {
       ) {
         throw new EncryptedPdfError(fileName);
       }
-      // Any other parse error is not an encryption problem — ignore here,
-      // the main load call will handle it.
     }
   }
 

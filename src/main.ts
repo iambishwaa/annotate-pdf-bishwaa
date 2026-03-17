@@ -5,8 +5,13 @@ import {
   Setting,
   Notice,
   TFile,
+  View,
 } from "obsidian";
-import { SelectionExtractor } from "./highlight/SelectionExtractor";
+
+import {
+  SelectionExtractor,
+  RectOverlay,
+} from "./highlight/SelectionExtractor";
 import { HighlightJsonStore } from "./storage/HighlightJsonStore";
 import {
   PdfAnnotator,
@@ -59,12 +64,6 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
   private _isFlushing = false;
   private _flushPending = false;
 
-  // ── Track which files are known-encrypted so we never retry them ────────────
-  // This is the key fix for the "continuous error spam" problem.
-  // Once we confirm a file is password-protected, we add its path here.
-  // The flush loop skips it entirely on every subsequent call.
-  // The set is cleared if the user explicitly resets the cache (in case they
-  // remove the password and want to retry).
   public _encryptedFiles: Set<string> = new Set();
 
   async onload() {
@@ -87,7 +86,7 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
 
     this.addSettingTab(new PdfHighlighterSettingTab(this.app, this));
 
-    setTimeout(() => this.flushCache(), 3000);
+    setTimeout(() => void this.flushCache(), 3000);
 
     this.registerInterval(
       window.setInterval(() => this.reinjectCssOverlays(), 1500),
@@ -95,10 +94,13 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
 
     this.addCommand({
       id: "highlight-pdf-primary",
-      name: "Highlight Selected PDF Text (Primary)",
+      name: "Highlight selected PDF text (primary)",
       checkCallback: (checking) => {
-        if (this.app.workspace.activeLeaf?.view.getViewType() === "pdf") {
-          if (!checking) this.executeHighlight(this.settings.hexColorPrimary);
+        if (
+          this.app.workspace.getActiveViewOfType(View)?.getViewType() === "pdf"
+        ) {
+          if (!checking)
+            void this.executeHighlight(this.settings.hexColorPrimary);
           return true;
         }
         return false;
@@ -107,10 +109,13 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
 
     this.addCommand({
       id: "highlight-pdf-secondary",
-      name: "Highlight Selected PDF Text (Secondary)",
+      name: "Highlight selected PDF text (secondary)",
       checkCallback: (checking) => {
-        if (this.app.workspace.activeLeaf?.view.getViewType() === "pdf") {
-          if (!checking) this.executeHighlight(this.settings.hexColorSecondary);
+        if (
+          this.app.workspace.getActiveViewOfType(View)?.getViewType() === "pdf"
+        ) {
+          if (!checking)
+            void this.executeHighlight(this.settings.hexColorSecondary);
           return true;
         }
         return false;
@@ -119,10 +124,13 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
 
     this.addCommand({
       id: "highlight-pdf-tertiary",
-      name: "Highlight Selected PDF Text (Tertiary)",
+      name: "Highlight selected PDF text (tertiary)",
       checkCallback: (checking) => {
-        if (this.app.workspace.activeLeaf?.view.getViewType() === "pdf") {
-          if (!checking) this.executeHighlight(this.settings.hexColorTertiary);
+        if (
+          this.app.workspace.getActiveViewOfType(View)?.getViewType() === "pdf"
+        ) {
+          if (!checking)
+            void this.executeHighlight(this.settings.hexColorTertiary);
           return true;
         }
         return false;
@@ -131,10 +139,12 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
 
     this.addCommand({
       id: "remove-pdf-highlight",
-      name: "Remove Highlight Under Selection",
+      name: "Remove highlight under selection",
       checkCallback: (checking) => {
-        if (this.app.workspace.activeLeaf?.view.getViewType() === "pdf") {
-          if (!checking) this.executeRemoveHighlight();
+        if (
+          this.app.workspace.getActiveViewOfType(View)?.getViewType() === "pdf"
+        ) {
+          if (!checking) void this.executeRemoveHighlight();
           return true;
         }
         return false;
@@ -159,19 +169,19 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
         selection.toString().trim().length > 0;
 
       if (evt.key.toLowerCase() === "h" && hasSelection) {
-        this.executeHighlight(this.settings.hexColorPrimary);
+        void this.executeHighlight(this.settings.hexColorPrimary);
         evt.preventDefault();
       } else if (evt.key.toLowerCase() === "g" && hasSelection) {
-        this.executeHighlight(this.settings.hexColorSecondary);
+        void this.executeHighlight(this.settings.hexColorSecondary);
         evt.preventDefault();
       } else if (evt.key.toLowerCase() === "j" && hasSelection) {
-        this.executeHighlight(this.settings.hexColorTertiary);
+        void this.executeHighlight(this.settings.hexColorTertiary);
         evt.preventDefault();
       } else if (
         (evt.key === "Delete" || evt.key === "Backspace") &&
         hasSelection
       ) {
-        this.executeRemoveHighlight();
+        void this.executeRemoveHighlight();
         evt.preventDefault();
       }
     });
@@ -181,7 +191,7 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
     );
     this.registerEvent(this.app.workspace.on("quit", () => this.flushCache()));
 
-    console.log("AnnotatePDF by bishwaa loaded");
+    console.debug("AnnotatePDF by bishwaa loaded");
   }
 
   // ─── Concurrency-safe flush ───────────────────────────────────────────────
@@ -198,7 +208,7 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
       this._isFlushing = false;
       if (this._flushPending) {
         this._flushPending = false;
-        setTimeout(() => this.flushCache(), 50);
+        setTimeout(() => void this.flushCache(), 50);
       }
     }
   }
@@ -216,11 +226,6 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
     ]);
 
     for (const filePath of allPaths) {
-      // ── Skip files we already know are encrypted ─────────────────────────
-      // This is what stops the infinite error loop. Once a file is confirmed
-      // encrypted, we stop retrying it forever. The queue is already cleared
-      // at the point of detection (see catch block below), so skipping here
-      // is just a safety net for any edge case where paths re-appear.
       if (this._encryptedFiles.has(filePath)) continue;
 
       const file = this.app.vault.getAbstractFileByPath(filePath);
@@ -265,10 +270,6 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
         }
       } catch (e) {
         if (e instanceof EncryptedPdfError) {
-          // ── Password-protected PDF ────────────────────────────────────────
-          // 1. Show a clear, specific message (not the generic "open elsewhere" message)
-          // 2. CLEAR the queue for this file — retrying is pointless
-          // 3. Mark the file so future flush calls skip it immediately
           new Notice(
             `🔒 "${file.name}" is password-protected.\n\nAnnotatePDF cannot modify encrypted PDFs. Highlights have been discarded.`,
             8000,
@@ -279,9 +280,6 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
           this._encryptedFiles.add(filePath);
           await this.syncPendingQueueToDisk();
         } else if (e instanceof LockedPdfError) {
-          // ── File locked by another app (Foxit, Acrobat, etc.) ────────────
-          // Keep the queue intact — the user can close the other app and
-          // switch tabs to retry. This is the original resilience behavior.
           new Notice(
             `❌ "${file.name}" is open in another app.\n\nClose it there first, then switch tabs to save your highlights.`,
             6000,
@@ -313,9 +311,6 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
     const activeFile = this.app.workspace.getActiveFile();
     if (!activeFile || activeFile.extension !== "pdf") return;
 
-    // ── Guard: refuse to queue highlights for a known-encrypted file ─────────
-    // Give instant feedback instead of letting the user highlight happily
-    // only to see all their work discarded at flush time.
     if (this._encryptedFiles.has(activeFile.path)) {
       new Notice(
         `🔒 "${activeFile.name}" is password-protected and cannot be annotated.`,
@@ -449,11 +444,11 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
   // ─── CSS overlay helpers ──────────────────────────────────────────────────
   drawTemporaryCssOverlay(
     pageNumber: number,
-    rects: any[],
+    rects: RectOverlay[],
     colorHex: string,
     opacityFloat: number,
   ) {
-    const container = this.app.workspace.activeLeaf?.view.containerEl;
+    const container = this.app.workspace.getActiveViewOfType(View)?.containerEl;
     if (!container) return;
 
     const pageDiv = container.querySelector(
@@ -461,33 +456,31 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
     );
     if (!pageDiv) return;
 
+    // After
     let tempLayer = pageDiv.querySelector(".temp-highlights-layer");
     if (!tempLayer) {
       tempLayer = document.createElement("div");
-      tempLayer.className = "temp-highlights-layer";
-      (tempLayer as HTMLElement).style.cssText =
-        "position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;";
+      tempLayer.addClass("temp-highlights-layer");
       pageDiv.appendChild(tempLayer);
     }
 
     for (const r of rects) {
       const el = document.createElement("div");
-      el.style.cssText = `
-        position:absolute;
-        left:${r.pLeft * 100}%;
-        top:${r.pTop * 100}%;
-        width:${r.pWidth * 100}%;
-        height:${r.pHeight * 100}%;
-        background-color:${colorHex};
-        opacity:${opacityFloat};
-        mix-blend-mode:multiply;
-      `;
+      el.addClass("temp-highlight-rect");
+      el.setCssProps({
+        left: `${r.pLeft * 100}%`,
+        top: `${r.pTop * 100}%`,
+        width: `${r.pWidth * 100}%`,
+        height: `${r.pHeight * 100}%`,
+        "background-color": colorHex,
+        opacity: opacityFloat.toString(),
+      });
       tempLayer.appendChild(el);
     }
   }
 
   removeTemporaryCssOverlay(cursorRect: any, pageNumber: number) {
-    const container = this.app.workspace.activeLeaf?.view.containerEl;
+    const container = this.app.workspace.getActiveViewOfType(View)?.containerEl;
     if (!container) return;
 
     const pageDiv = container.querySelector(
@@ -519,7 +512,7 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
     const pending = this.pendingHighlights.get(activeFile.path);
     if (!pending || pending.length === 0) return;
 
-    const container = this.app.workspace.activeLeaf?.view.containerEl;
+    const container = this.app.workspace.getActiveViewOfType(View)?.containerEl;
     if (!container) return;
 
     const byPage = new Map<number, PdfHighlightPayload[]>();
@@ -548,9 +541,9 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
 
   checkIntersection(
     hlPage: number,
-    hlRects: any[],
+    hlRects: RectOverlay[],
     cursorPage: number,
-    cursorRect: any,
+    cursorRect: RectOverlay,
   ): boolean {
     if (hlPage !== cursorPage) return false;
     const margin = 0.005;
@@ -569,7 +562,7 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
   onunload() {
     this.syncPendingQueueToDisk().catch(console.error);
     this.flushCache().catch(console.error);
-    console.log("AnnotatePDF by bishwaa unloaded");
+    console.debug("AnnotatePDF by bishwaa unloaded");
   }
 
   async loadSettings() {
@@ -592,10 +585,12 @@ class PdfHighlighterSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl("h2", { text: "AnnotatePDF Native Settings" });
+    new Setting(containerEl)
+      .setName("AnnotatePDF native settings")
+      .setHeading();
 
     new Setting(containerEl)
-      .setName("Author Name")
+      .setName("Author name")
       .setDesc("Stored natively in the PDF annotation metadata.")
       .addText((text) =>
         text.setValue(this.plugin.settings.author).onChange(async (value) => {
@@ -605,7 +600,7 @@ class PdfHighlighterSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Primary Color (Hotkey: h)")
+      .setName("Primary color (hotkey: h)")
       .addColorPicker((color) =>
         color
           .setValue(this.plugin.settings.hexColorPrimary)
@@ -616,7 +611,7 @@ class PdfHighlighterSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Secondary Color (Hotkey: g)")
+      .setName("Secondary color (hotkey: g)")
       .addColorPicker((color) =>
         color
           .setValue(this.plugin.settings.hexColorSecondary)
@@ -627,7 +622,7 @@ class PdfHighlighterSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Tertiary Color (Hotkey: j)")
+      .setName("Tertiary color (hotkey: j)")
       .addColorPicker((color) =>
         color
           .setValue(this.plugin.settings.hexColorTertiary)
@@ -638,7 +633,7 @@ class PdfHighlighterSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Highlight Opacity")
+      .setName("Highlight opacity")
       .setDesc("Native PDF alpha opacity (0–100).")
       .addSlider((slider) =>
         slider
@@ -652,7 +647,7 @@ class PdfHighlighterSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("Reset Cache")
+      .setName("Reset cache")
       .setDesc(
         "Clears all pending queues, the JSON audit log, and the encrypted-file blocklist. " +
           "Use this if you removed a password from a PDF and want to annotate it again.",
@@ -674,3 +669,5 @@ class PdfHighlighterSettingTab extends PluginSettingTab {
       );
   }
 }
+
+// bishwaababu

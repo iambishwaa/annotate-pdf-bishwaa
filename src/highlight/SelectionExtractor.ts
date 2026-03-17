@@ -41,36 +41,14 @@ export class SelectionExtractor {
     if (!pageNumberAttr) return null;
     const pageNumber = parseInt(pageNumberAttr, 10);
 
-    // Use the canvas as the reference frame (not the .page wrapper div)
-    // because the textLayer spans are positioned over the canvas, not the
-    // outer .page div which has extra padding and a CSS drop-shadow.
     const canvas = pageDiv.querySelector("canvas");
-    const textLayer = pageDiv.querySelector(".textLayer") as HTMLElement | null;
+    const textLayer = pageDiv.querySelector<HTMLElement>(".textLayer");
+
     const referenceEl: HTMLElement = canvas ?? textLayer ?? pageDiv;
     const pageRect = referenceEl.getBoundingClientRect();
 
     if (pageRect.width === 0 || pageRect.height === 0) return null;
 
-    // ── THE CORE FIX: per-text-node sub-ranges ────────────────────────────
-    //
-    // WHY range.getClientRects() was wrong:
-    //
-    // PDF.js renders each text chunk as a single <span> that can cover an
-    // entire line. When your selection touches that span — even for just
-    // two words — getClientRects() returns the rect for the WHOLE span,
-    // not just the selected characters. This made partial line selections
-    // highlight the entire line.
-    //
-    // THE FIX:
-    // Walk every TEXT NODE covered by the range individually. For each one,
-    // create a fresh sub-Range covering only the selected characters inside
-    // that node. Calling getClientRects() on this sub-Range returns a rect
-    // for exactly those characters, regardless of how wide their parent
-    // <span> is.
-    //
-    // This is the same approach browser devtools use internally to draw the
-    // blue selection highlight — character-accurate, not span-accurate.
-    // ─────────────────────────────────────────────────────────────────────
     const rawRects: RectOverlay[] = [];
     const textNodes = this.getTextNodesInRange(range);
 
@@ -165,12 +143,7 @@ export class SelectionExtractor {
   }
 
   // ── Merge rects on the same visual line ──────────────────────────────────
-  //
-  // Even with per-character rects, a single word can produce multiple tiny
-  // rects (one per glyph cluster in some PDF.js builds). We still merge
-  // rects that share the same baseline into one clean highlight block,
-  // which prevents opacity-stacking artifacts on overlapping edges.
-  // ─────────────────────────────────────────────────────────────────────────
+
   private mergeRects(rects: RectOverlay[]): RectOverlay[] {
     // Sort top-to-bottom, then left-to-right
     rects.sort((a, b) => {

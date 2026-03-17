@@ -1,8 +1,14 @@
-/*
+.temp-highlights-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
-
-If your plugin does not need CSS, delete this file.
-
-*/
+.temp-highlight-rect {
+  position: absolute;
+  mix-blend-mode: multiply;
+}
