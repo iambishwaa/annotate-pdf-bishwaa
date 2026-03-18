@@ -3,5 +3,3 @@ node_modules/
 .DS_Store
 build_error.log
 build.log
-main.js
-main.js.map
