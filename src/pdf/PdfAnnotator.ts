@@ -139,15 +139,13 @@ export class PdfAnnotator {
         updateMetadata: false,
         ignoreEncryption: false,
       });
-    } catch (e: any) {
-      // pdf-lib's own EncryptedPDFError (belt-and-suspenders catch)
+    } catch (e) {
       if (
-        e?.name === "EncryptedPDFError" ||
-        e?.message?.includes("encrypted")
+        e instanceof Error &&
+        (e.name === "EncryptedPDFError" || e.message.includes("encrypted"))
       ) {
         throw new EncryptedPdfError(file.name);
       }
-      // Anything else is likely a file-lock / corruption — treat as retryable
       throw new LockedPdfError(file.name);
     }
 
@@ -296,12 +294,11 @@ export class PdfAnnotator {
       const annotationRef = pdfDoc.context.register(highlightAnnotation);
       let annotsObj = this._resolveAnnotsArray(pdfDoc, page);
       if (!annotsObj) {
-        // After
-        const newArr = pdfDoc.context.obj([]) as PDFArray;
+        const newArr = pdfDoc.context.obj([]);
         page.node.set(PDFName.of("Annots"), newArr);
-        annotsObj = newArr;
+        annotsObj = newArr instanceof PDFArray ? newArr : null;
       }
-      annotsObj.push(annotationRef);
+      annotsObj?.push(annotationRef);
     }
 
     // ── Save ─────────────────────────────────────────────────────────────
@@ -328,10 +325,11 @@ export class PdfAnnotator {
         updateMetadata: false,
         ignoreEncryption: false,
       });
-    } catch (e: any) {
+    } catch (e) {
       if (
-        e?.name === "EncryptedPDFError" ||
-        e?.message?.toLowerCase().includes("encrypt")
+        e instanceof Error &&
+        (e.name === "EncryptedPDFError" ||
+          e.message.toLowerCase().includes("encrypt"))
       ) {
         throw new EncryptedPdfError(fileName);
       }
