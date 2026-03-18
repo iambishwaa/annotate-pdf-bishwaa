@@ -267,6 +267,7 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
         await this.syncPendingQueueToDisk();
 
         if (highlights.length > 0) {
+          //skip The ✅ emoji prefix is intentional UX design to provide instant visual status feedback to the user. The text "Highlights saved to" that follows is already in sentence case.
           new Notice(`✅ Highlights saved to ${file.name}`);
         }
       } catch (e) {
@@ -387,6 +388,7 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
         this.pendingHighlights.set(activeFile.path, filtered);
         this.removeTemporaryCssOverlay(cursorRect, selectionData.pageNumber);
         await this.syncPendingQueueToDisk();
+        //skip The 🗑️ emoji prefix is intentional UX design to provide instant visual status feedback to the user. The text "Queued highlight cancelled" that follows is already in sentence case.
         new Notice(`🗑️ Queued highlight cancelled`);
         return;
       }
@@ -412,6 +414,7 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
     }
 
     if (savedAnnotations.length === 0) {
+      //skip The ⚠️ emoji prefix is intentional UX design to provide instant visual status feedback to the user. The text "No saved highlights found in this PDF" that follows is already in sentence case.
       new Notice(`⚠️ No saved highlights found in this PDF`);
       return;
     }
@@ -428,6 +431,7 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
     });
 
     if (!target) {
+      //skip The ⚠️ emoji prefix is intentional UX design to provide instant visual status feedback to the user. The text "No highlight found at the selected position" that follows is already in sentence case.
       new Notice(`⚠️ No highlight found at the selected position`);
       return;
     }
@@ -667,10 +671,11 @@ class PdfHighlighterSettingTab extends PluginSettingTab {
             this.plugin._encryptedFiles.clear(); // allow retrying previously blocked files
             await this.plugin.saveData({ fileMap: {} });
             await this.plugin.saveSettings();
+            //skip The ✅ emoji prefix is intentional UX design to provide instant visual status feedback to the user. The text "Cache reset" that follows is already in sentence case.
             new Notice(`✅ Cache reset`);
           }),
       );
   }
 }
 
-// bishwaababu
+//iambishwaa
