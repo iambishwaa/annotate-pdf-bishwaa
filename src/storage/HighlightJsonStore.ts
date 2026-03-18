@@ -18,6 +18,18 @@ interface HighlightFileMap {
   };
 }
 
+// Typed wrapper for what loadData() returns so we never touch `any`
+interface PluginData {
+  fileMap: HighlightFileMap;
+}
+
+function parsePluginData(raw: unknown): PluginData {
+  if (raw && typeof raw === "object" && "fileMap" in raw) {
+    return raw as PluginData;
+  }
+  return { fileMap: {} };
+}
+
 export class HighlightJsonStore {
   plugin: PdfHighlighterBishwaaPlugin;
 
@@ -30,28 +42,19 @@ export class HighlightJsonStore {
   }
 
   async saveHighlightsBatch(pdfPath: string, highlights: HighlightModel[]) {
-    const data = (await this.plugin.loadData()) || {};
-    const state: HighlightFileMap = data.fileMap || {};
+    const data = parsePluginData(await this.plugin.loadData());
 
-    if (!state[pdfPath]) {
-      state[pdfPath] = { highlights: [] };
+    if (!data.fileMap[pdfPath]) {
+      data.fileMap[pdfPath] = { highlights: [] };
     }
+    data.fileMap[pdfPath].highlights.push(...highlights);
 
-    state[pdfPath].highlights.push(...highlights);
-
-    data.fileMap = state;
     await this.plugin.saveData(data);
   }
 
   async loadHighlights(pdfPath: string): Promise<HighlightModel[]> {
-    const data = (await this.plugin.loadData()) || {};
-    const state: HighlightFileMap = data.fileMap || {};
-
-    if (!state[pdfPath] || !state[pdfPath].highlights) {
-      return [];
-    }
-
-    return state[pdfPath].highlights;
+    const data = parsePluginData(await this.plugin.loadData());
+    return data.fileMap[pdfPath]?.highlights ?? [];
   }
 
   async applyBatchUpdatesToJson(
@@ -59,24 +62,22 @@ export class HighlightJsonStore {
     highlightsToAdd: HighlightModel[],
     idsToDelete: string[],
   ) {
-    const data = (await this.plugin.loadData()) || {};
-    const state: HighlightFileMap = data.fileMap || {};
+    const data = parsePluginData(await this.plugin.loadData());
 
-    if (!state[pdfPath]) {
-      state[pdfPath] = { highlights: [] };
+    if (!data.fileMap[pdfPath]) {
+      data.fileMap[pdfPath] = { highlights: [] };
     }
 
     if (idsToDelete.length > 0) {
-      state[pdfPath].highlights = state[pdfPath].highlights.filter(
-        (h) => !idsToDelete.includes(h.id),
-      );
+      data.fileMap[pdfPath].highlights = data.fileMap[
+        pdfPath
+      ].highlights.filter((h) => !idsToDelete.includes(h.id));
     }
 
     if (highlightsToAdd.length > 0) {
-      state[pdfPath].highlights.push(...highlightsToAdd);
+      data.fileMap[pdfPath].highlights.push(...highlightsToAdd);
     }
 
-    data.fileMap = state;
     await this.plugin.saveData(data);
   }
 }

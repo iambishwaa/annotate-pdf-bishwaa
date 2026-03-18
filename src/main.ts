@@ -387,7 +387,7 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
         this.pendingHighlights.set(activeFile.path, filtered);
         this.removeTemporaryCssOverlay(cursorRect, selectionData.pageNumber);
         await this.syncPendingQueueToDisk();
-        new Notice("🗑️ Queued highlight cancelled");
+        new Notice(`🗑️ Queued highlight cancelled`);
         return;
       }
     }
@@ -412,7 +412,7 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
     }
 
     if (savedAnnotations.length === 0) {
-      new Notice("⚠️ No saved highlights found in this PDF");
+      new Notice(`⚠️ No saved highlights found in this PDF`);
       return;
     }
 
@@ -428,7 +428,7 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
     });
 
     if (!target) {
-      new Notice("⚠️ No highlight found at the selected position");
+      new Notice(`⚠️ No highlight found at the selected position`);
       return;
     }
 
@@ -567,7 +567,11 @@ export default class PdfHighlighterBishwaaPlugin extends Plugin {
   }
 
   async loadSettings() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    this.settings = Object.assign(
+      {},
+      DEFAULT_SETTINGS,
+      (await this.loadData()) as Partial<PdfHighlighterSettings>,
+    );
   }
 
   async saveSettings() {
@@ -586,7 +590,7 @@ class PdfHighlighterSettingTab extends PluginSettingTab {
   display(): void {
     const { containerEl } = this;
     containerEl.empty();
-    new Setting(containerEl).setName("AnnotatePDF").setHeading();
+    new Setting(containerEl).setName("Annotate PDF").setHeading();
 
     new Setting(containerEl)
       .setName("Author name")
@@ -663,7 +667,7 @@ class PdfHighlighterSettingTab extends PluginSettingTab {
             this.plugin._encryptedFiles.clear(); // allow retrying previously blocked files
             await this.plugin.saveData({ fileMap: {} });
             await this.plugin.saveSettings();
-            new Notice("✅ Cache reset");
+            new Notice(`✅ Cache reset`);
           }),
       );
   }
